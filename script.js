@@ -1,4 +1,4 @@
-// ✅ 設定為你的新倉庫名稱 'print'
+// ✅ 設定你的 GitHub 倉庫資訊
 const REPO_OWNER = 'shanho001-web';
 const REPO_NAME = 'print'; 
 
@@ -36,7 +36,7 @@ function loadPage(url, btn) {
 function openAddModal() { document.getElementById('uploadModal').style.display = 'flex'; }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-// ✅ 核心功能：發布文章
+// ✅【核心修復】發布文章：先查詢 SHA，確保不會發生 422 錯誤
 async function uploadPage() {
   const title = document.getElementById('pageTitle').value.trim();
   const rawName = document.getElementById('fileName').value.trim();
@@ -48,7 +48,9 @@ async function uploadPage() {
   // 檔名規範化
   const cleanName = rawName.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase() + '.html';
   const fileUrl = 'pages/' + cleanName;
+  const repoPath = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/pages/${cleanName}`;
 
+  // 準備 HTML 內容
   const fullHTML = `<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -66,25 +68,51 @@ async function uploadPage() {
   const contentBase64 = btoa(unescape(encodeURIComponent(fullHTML)));
 
   try {
-    const fileRes = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/pages/${cleanName}`, {
+    console.log('正在檢查檔案是否存在...');
+    // 1. 先嘗試獲取該檔案的 SHA (決定是要 CREATE 還是 UPDATE)
+    const checkRes = await fetch(repoPath, {
+      headers: { 'Authorization': `token ${token}` }
+    });
+
+    let sha = '';
+    if (checkRes.ok) {
+      const fileData = await checkRes.json();
+      sha = fileData.sha;
+      console.log('檔案已存在，準備進行更新 (SHA: ' + sha + ')');
+    } else if (checkRes.status === 404) {
+      console.log('檔案不存在，準備進行全新發布');
+    } else {
+      throw new Error('檢查檔案時發生錯誤: ' + checkRes.status);
+    }
+
+    // 2. 執行 PUT 請求
+    const putRes = await fetch(repoPath, {
       method: 'PUT',
-      headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+      headers: { 
+        'Authorization': `token ${token}`, 
+        'Content-Type': 'application/json' 
+      },
       body: JSON.stringify({ 
-        message: `Add new page: ${cleanName}`, 
-        content: contentBase64 
+        message: sha ? `Update page: ${cleanName}` : `Add new page: ${cleanName}`, 
+        content: contentBase64,
+        sha: sha // 如果是新檔，sha 為空字串，GitHub 會自動處理
       })
     });
 
-    if (!fileRes.ok) {
-      const errData = await fileRes.json();
-      throw new Error(errData.message || 'HTML 上傳失敗');
+    if (!putRes.ok) {
+      const errData = await putRes.json();
+      throw new Error(errData.message || '檔案上傳失敗');
     }
 
+    console.log('HTML 上傳成功！正在同步選單...');
+
+    // 3. 同步更新選單 (menu.json)
     await updateMenuOnGitHub(token, { title, url: fileUrl });
 
     alert('🚀 發布成功！');
     location.reload();
   } catch (e) {
+    console.error(e);
     alert('❌ 錯誤: ' + e.message);
   }
 }
@@ -103,9 +131,10 @@ async function updateMenuOnGitHub(token, newPage) {
     sha = data.sha;
     currentMenu = JSON.parse(atob(data.content));
   } else if (getRes.status !== 404) {
-    throw new Error('無法讀取雲端選單，請檢查 Token 權限');
+    throw new Error('無法讀取雲端選單');
   }
 
+  // 防止重複加入相同的 URL
   if (!currentMenu.find(p => p.url === newPage.url)) {
     currentMenu.push(newPage);
   }
@@ -115,7 +144,7 @@ async function updateMenuOnGitHub(token, newPage) {
     headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       message: sha ? 'Sync menu' : 'Initialize menu.json',
-      content: btoa(unescape(encodeURIComponent(JSON.stringify(currentMenu, null, 2)))),
+      content: btoa(unesescape(encodeURIComponent(JSON.stringify(currentMenu, null, 2)))),
       sha: sha
     })
   });
@@ -134,17 +163,19 @@ async function syncMenu() {
       renderMenu();
       alert('✅ 已從雲端同步最新選單');
     } else {
-      alert('⚠️ 雲端還沒有選單，請先在電腦端新增文章。');
+      alert('⚠️ 雲端還沒有選單，請先在電腦端新增文章');
     }
   } catch (e) {
     alert('同步失敗，請檢查網路連線');
   }
 }
 
+// 刪除功能
 async function deletePage(index) {
   if (!confirm('確定要刪除嗎？')) return;
   pageList.splice(index, 1);
   renderMenu();
 }
 
+// 初始化
 renderMenu();
