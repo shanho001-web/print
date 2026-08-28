@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的個人天書 - Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 左側選單 -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h2>📂 我的天書</h2>
+      <button class="sync-btn" onclick="syncMenu()">🔄 同步雲端</button>
+    </div>
+    
+    <button class="add-page-btn" onclick="openAddModal()">➕ 新增文章</button>
+    <ul class="nav-list" id="navList"></ul>
+  </aside>
+
+  <!-- 右側內容區 -->
+  <main class="main-wrapper">
+    <iframe id="content-frame"></iframe>
+  </main>
+
+  <!-- 新增文章 Modal -->
+  <div class="modal-overlay" id="uploadModal">
+    <div class="modal">
+      <h3>➕ 新增文章</h3>
+
+      <label>文章標題</label>
+      <input type="text" id="pageTitle" placeholder="例: 我的學習筆記">
+
+      <label>儲存檔名 (僅限英文、數字、橫線)</label>
+      <input type="text" id="fileName" placeholder="例: my-note">
+
+      <label>文章內容 (支援換行)</label>
+      <textarea id="textContent" style="height: 200px;" placeholder="在此貼上內容..."></textarea>
+
+      <label>GitHub Token (PAT)</label>
+      <input type="password" id="githubToken" placeholder="貼上你的 ghp_xxx">
+
+      <div class="modal-actions">
+        <button onclick="uploadPage()" class="btn-primary">🚀 發布</button>
+        <button onclick="closeModal('uploadModal')" class="btn-secondary">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
