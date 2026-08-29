@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firebase網站安全架構</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body class="content-body" style="padding: 30px; max-width: 800px; margin: auto; line-height: 1.8; font-size: 18px; color: #333;">
+  <h1 style="margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">Firebase網站安全架構</h1>
+  <div class="content-text" style="white-space: pre-wrap;">Firebase網站安全架構
+
+資安指南與架構
+
+AA資安指南與架構
+
+FIREBASE資安指南與架構手冊
+
+📱 開支報帳與索償系統 — 成員安心指南與資安架構手冊
+
+各位朋友、團隊夥伴大家好！👋
+
+為咗等大家平時買嘢報銷、交單據、記帳時更加輕鬆、快靚正，同時清清楚楚保障每一位朋友嘅個人隱私，我哋正式啟用咗呢個全新的內部專用報帳系統。
+
+可能大家第一次用，心入面難免會有幾點疑問：
+👉 「我上傳嘅私人收據，其他會員會唔會八卦睇到？」
+👉 「黑客會用什麼手法攻擊？系統底層如何確保完全無法破解？」
+👉 「點解註冊要入邀請暗號咁神秘？」
+為咗等大家用得舒舒服服、100% 放心，呢度用最親民嘅語言，配合 Google 企業級雲端資安架構，一次過同大家交代背後嘅雙重防禦機制！
+
+🔒 一、 點解註冊一定要有「專屬邀請暗號」？（封閉式團體門禁）
+
+我哋呢個系統係絕對不對外公開嘅內部天地，所以設有嚴密的「熟人守門機制」：
+非公開註冊模式（拒絕陌生人隨便入嚟）：
+系統唔開放畀公眾註冊。只有收到管理員親手發放嘅專屬暗號（區分大小寫，例如 VIP-Pass88），先可以成功完成帳號初始化。
+
+伺服器端防拖庫（Anti-Enumeration，黑客撞唔到、偷唔走）：
+暗號鎖喺雲端保險箱。在伺服器端 Firestore Rules 中，徹底關閉咗客戶端批量讀取權限（allow list: if isSuperAdmin()）。外部黑客或惡意腳本完全無辦法一鍵抓取暗號清單；客戶端只能進行單筆精準比對，只要大小寫或字元唔符即刻拒絕！
+
+配額鎖定與原子計數（用完即止，杜絕無限轉發）：
+每個邀請暗號均設有使用次數上限（Limit）與 Audit Log 使用紀錄，額滿自動失效，杜絕暗號被私下無限轉發。
+
+💡 Firebase 原廠安全系統核心精要：
+Firebase Auth 絕對認證 Token：每次登入均由 Google 發放具備密碼學數位簽章的 JWT，杜絕 Session 偽造。
+
+Cloud Firestore Rules 嚴格審計：資料庫實施「零信任」權限隔離，非授權請求會在 Google 伺服器端第一時間被拒絕。
+
+Anti-Enumeration & 防撞防爬機制：關閉所有清單查詢列舉（List），杜絕暴力破解與腳本爬蟲。
+
+App Check 原廠防護：綁定合法設備指紋，阻斷所有來自非法腳本或未授權 App 端的惡意 API 請求。
+
+🛡️ 二、 黑客核心破解手法剖析與 Firestore 底層防線（Zero-Trust Defense）
+
+在真實的網路攻擊中，黑客不會依賴前端介面，而是會透過 API 封包構造、垂直提權請求、直接跨界存取 等專業手段嘗試破解系統。
+
+本系統採用 「Firestore 伺服器端零信任（Zero-Trust Enforcement）」 的底層架構，所有安全性檢驗均在 Google 雲端伺服器端強制執行，黑客的任何專業攻擊手法都會在底層被徹底粉碎：
+
+黑客攻擊手法 / 封包嘗試
+
+Firestore 底層規則審計 (Server-Side)
+
+破解結果
+
+1. 構造特製 API 將 role 欄位改為 'admin'
+檢查: request.resource.data.role == 'member'
+
+❌ 403 拒絕提權
+2. 發送非法 Update 封包竄改單據金額
+檢查: allow update: if isSuperAdmin()
+❌ 403 禁止修改
+3. 偽造路徑嘗試讀取他人 UID 的圖片
+檢查: request.auth.uid == userId
+❌ 403 阻斷讀取
+4. 網頁檢視 / F12 工具夾帶 XSS 惡意腳本
+前端: escapeHtml() 轉義為純文字實體編碼
+🛡️ 腳本無效
+
+❌ 攻擊手法 1：垂直提權攻擊（Privilege Escalation）
+黑客手法： 黑客在註冊或更新數據時，直接發送特製 JSON 封包，試圖將帳號權限（role）強行寫入為 admin。
+
+底層不可破解原因： Firestore Security Rules 在伺服器端死死鎖定 request.resource.data.role == 'member'。任何非管理員發起的權限變更請求，會在 Google 資料庫入口被第一時間阻斷並拋出 403 Permission Denied。
+
+❌ 攻擊手法 2：財務數據竄改與重放攻擊（Financial Data Modification）
+黑客手法： 單據提交後，黑客發送 API 封包，試圖調高報銷金額、改動匯率或抹除紀錄。
+
+底層不可破解原因： 一般會員在 Firestore 伺服器端完全沒有 Update 權限（allow update: if isSuperAdmin()）。單據一旦建立，金額與匯率在底層物理層面上即成為不可變動（Immutable Ledger）狀態。
+
+❌ 攻擊手法 3：越權讀取他人私密數據（Bypassing ACL & Row-Level Leak）
+黑客手法： 黑客嘗試遍歷或猜測其他成員的 UID / 檔案路徑，試圖下載或窺探別人的敏感單據與圖片。
+
+底層不可破解原因： 所有圖片獨立存放於 /claims/{userId}/{fileName}。Storage 規則每次存取時嚴格校驗 request.auth.uid == userId。非本人或管理員，Google 伺服器在協定層直接拒絕，連 1 個 Byte 的資料都無法竊取。
+
+🔍 補充：針對純粹「好奇 / F12 網頁檢視」的防禦機制
+如果只是普通使用者好奇按鍵盤 F12（開發者工具） 檢視網頁原始碼或嘗試在輸入框寫程式碼：
+
+XSS 消毒： 系統對所有輸入的文字字串實施 escapeHtml() 實體轉義，任何 HTML/JS 惡意腳本都會被轉化為純文字，無法運行。
+
+隔離保護： 前端 F12 看到的只是瀏覽器呈現的畫面，無法更改 Google 伺服器上的任何資料庫邏輯。
+
+💡 填錯嘢想修改點算？（單據生命週期與審核鎖定）
+未審核階段（Unclaimed）： 只要管理員仲未批核入帳（status == 'unclaimed'），你可以隨時自行刪除填錯嘅單據再重新交過，非常彈性！
+已入帳階段（Claimed）： 一旦管理員審核轉為 claimed，系統處理邏輯自動撤銷一般會員嘅刪除權限，鎖定為正式財務歷史存檔，保障雙方誠信與權利！
+☁️ 三、 後台靠山：Google Firebase 國際企業級雲端服務
+我哋嘅系統並非架設於隨時面臨單點故障嘅傳統主機，而是直接運行喺 Google 旗下嘅企業級 Serverless 雲端架構 —— Firebase，具備與跨國金融機構同等級別嘅安全標準：
+
+Google 級傳輸加密（TLS 1.3 / HTTPS 256-bit）：
+全站採用軍規加密，客戶端與雲端伺服器之間嘅通訊受全鏈路保護，徹底杜絕中間人攻擊（MITM）與封包嗅探。
+
+密碼學身分鑑別（Firebase Authentication & JWT）：
+每次大家登入，Google 會自動發出一張具備時效性且帶有密碼學數位簽章嘅 JSON Web Token (JWT)。每一次操作都經由 Google Auth 進行身分校驗，絕無人可以偽造 Cookie 冒名頂替。
+
+發票獨立保險箱（Firebase Cloud Storage & Firestore）：
+
+資料具備多資料中心異地即時備份（99.999% 高可用性）。收據圖片獨立存放於物件儲存槽（Blob Storage），配合每個人嘅 UID 獨立隔離，只有你自己同審核管理員睇得到。
+
+🛡️ APPCHECK 設備指紋小提示：
+系統已整合 Google Firebase App Check 原廠資安認證機制（配合 reCAPTCHA v3 / DeviceCheck）。系統會自動驗證發出請求的是否為「經過 Google 認證的合法前端 App/瀏覽器」，徹底拒絕所有未經授權的外部自動化腳本、模擬器或 Bot 攻擊，防護規格直逼金融級應用！
+
+📋 四、 總結：畀全體成員的「安心承諾清單」
+你最關心的問題
+
+系統技術保障機制
+
+安全狀態
+
+我的收據相片會唔會畀其他人睇到？
+
+由 Firebase Storage 依據用戶專屬 UID 進行物理隔離，僅本人及審查管理員有權讀取。
+
+🔒 絕對唔會
+
+報帳金額送出後會唔會被人隨意改動？
+
+一般會員無資料庫 Update 權限，單據金額具備不可篡改性（Immutability）。
+
+🔒 絕對唔會
+
+如果我打錯資料、揀錯相點算？
+
+審核前可自由撤回。在管理員審批入帳前，您可以隨時自行刪除單據並重新提交。
+
+🔒 審核前可撤回
+
+單據審核通過後的安全性？
+
+審核鎖定機制。標記入帳後即鎖定為正式歷史檔案，會員無法刪除，確保雙方權益。
+
+🔒 雙方權益鎖定
+
+系統具備防範惡意攻擊的能力嗎？
+
+架構於 Google Firebase 企業級雲端之上，所有安全檢驗皆於伺服器端強制執行，任何黑客封包與網頁檢視竄改完全無效。
+
+🔒 極高防護力
+
+⚙️ 附錄：Google Firebase 原廠強大功能與自定後端邏輯架構
+本系統結合 Google Firebase 原廠強大基礎設施 與 自訂後端零信任防禦邏輯，建構出完整資安閉環：
+
+雲端原生安全架構（Firebase Cloud Native Security）
+
+Atomic Counters（原子操作計數）：邀請碼扣減與計數採用 Server-Side 原子操作，防止併發請求（Race Conditions）造成的超額漏洞。
+
+Granular ACL（細粒度存取控制）：Firebase Storage 安全規則基於 JWT Claims（request.auth.token）動態驗證，實行 Row-Level Security 檔案隔離。
+
+自訂後端商業邏輯（Custom Server-Side Business Logic）
+
+Role-Based Access Control (RBAC)：嚴格劃分 member 與 admin 角色。權限由資料庫 Document 與 Custom Claims 強制雙重鎖定。
+
+Immutable State Transition（狀態機不可逆鎖定）：單據狀態自 unclaimed 轉換至 claimed 後，由後端規則阻斷刪除與變更指令，確保財務 Audit Trail（審計追蹤）完整性。
+
+App Check 與防爬蟲生態系（Bot Defense & Integrity）
+
+Device Integrity Verification：結合 App Check 機制，防範中間人偽造 API 封包，確保每一次資料寫入皆來自驗證合格的正版前端介面。
+
+🚀 五、 超簡單 3 步，立即開始使用：
+1. 索取專屬邀請暗號
+向管理員索取邀請代碼（例如：VIP-Pass88，請務必注意英文大小寫一致）。
+2. 註冊帳號
+打開系統網頁 ➔ 選擇「會員專區」➔ 點擊「按此註冊」，填寫你的姓名、Email、密碼及邀請暗號。
+
+3. 開始報帳
+登入後即可拍照上傳收據、填寫金額（支援 HKD 港幣 / RMB 人民幣匯率折算）並一鍵提交審核！
+
+💡 使用建議：
+系統完全支援手機同電腦瀏覽器，大家可以將網址「加入手機主畫面（Bookmark / 加入主螢幕）」，隨時買完嘢影張相就報到帳，方便又快捷！
+
+如果使用上有任何問題，或者需要索取邀請暗號，歡迎隨時聯絡管理員！祝大家使用愉快！😊</div>
+</body>
+</html>
