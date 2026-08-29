@@ -1,3 +1,22 @@
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyAlgW4wgZ_GDUr2C9ra_vSFEU59PQqfKK0",
+  authDomain: "myprint-b471c.firebaseapp.com",
+  projectId: "myprint-b471c",
+  storageBucket: "myprint-b471c.firebasestorage.app",
+  messagingSenderId: "410227124042",
+  appId: "1:410227124042:web:d9dbfbe1418a7864cbc3b3",
+  measurementId: "G-RY4TZ7D7W4"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
 // ✅ 設定你的 GitHub 倉庫資訊
 const REPO_OWNER = 'shanho001-web';
 const REPO_NAME = 'print'; 
@@ -144,7 +163,7 @@ async function updateMenuOnGitHub(token, newPage) {
     headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       message: sha ? 'Sync menu' : 'Initialize menu.json',
-      content: btoa(unesescape(encodeURIComponent(JSON.stringify(currentMenu, null, 2)))),
+      content: btoa(unescape(encodeURIComponent(JSON.stringify(currentMenu, null, 2)))),
       sha: sha
     })
   });
@@ -176,6 +195,14 @@ async function deletePage(index) {
   pageList.splice(index, 1);
   renderMenu();
 }
+
+// Expose functions to window so they are globally accessible from HTML inline onclick handlers
+window.syncMenu = syncMenu;
+window.openAddModal = openAddModal;
+window.closeModal = closeModal;
+window.uploadPage = uploadPage;
+window.deletePage = deletePage;
+window.loadPage = loadPage;
 
 // 初始化
 renderMenu();

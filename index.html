@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>我的個人天書 - Dashboard</title>
   <link rel="stylesheet" href="style.css">
+  
+  <!-- Firebase CDN ESM Import Map -->
+  <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+        "firebase/analytics": "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js"
+      }
+    }
+  </script>
 </head>
 <body>
 
@@ -42,12 +52,12 @@
       <input type="password" id="githubToken" placeholder="貼上你的 ghp_xxx">
 
       <div class="modal-actions">
-        <button onclick="uploadPage()" class="btn-primary">🚀 發布</button>
+        <button onclick="uploadPage()" class="btn-primary" id="submitBtn">🚀 提交</button>
         <button onclick="closeModal('uploadModal')" class="btn-secondary">取消</button>
       </div>
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <script type="module" src="script.js?v=2"></script>
 </body>
 </html>
