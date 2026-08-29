@@ -11,7 +11,8 @@
     {
       "imports": {
         "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
-        "firebase/analytics": "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js"
+        "firebase/analytics": "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"
       }
     }
   </script>
@@ -22,7 +23,6 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <h2>📂 我的天書</h2>
-      <button class="sync-btn" onclick="syncMenu()">🔄 同步雲端</button>
     </div>
     
     <button class="add-page-btn" onclick="openAddModal()">➕ 新增文章</button>
@@ -47,9 +47,6 @@
 
       <label>文章內容 (支援換行)</label>
       <textarea id="textContent" style="height: 200px;" placeholder="在此貼上內容..."></textarea>
-
-      <label>GitHub Token (PAT)</label>
-      <input type="password" id="githubToken" placeholder="貼上你的 ghp_xxx">
 
       <div class="modal-actions">
         <button onclick="uploadPage()" class="btn-primary" id="submitBtn">🚀 提交</button>
